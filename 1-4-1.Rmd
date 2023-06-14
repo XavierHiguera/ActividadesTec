@@ -1,0 +1,124 @@
+---
+title: "Predicción Interactiva de COVID 19"
+output:
+  flexdashboard::flex_dashboard:
+    theme: spacelab
+    vertical_layout: fill
+    orientation: rows
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(foreign)
+library(flexdashboard)
+library(shiny)
+library(DT)
+library(dplyr)
+library(plotly)
+library(rgdal)
+library(mapview)
+library(RColorBrewer)
+library(tigris)
+library(leaflet)
+library(leaflet.extras)
+library(sf)
+library(sp)
+library(maps)
+library(ggplot2) 
+library(dygraphs)
+library(xts)
+```
+
+```{r}
+data <- read.csv("~/Downloads/global_clean.csv")
+data["Casos2021"] <- rowSums(data[,c(31,32,34:43)])
+data <- data[,c(2,3,9,45,16,6,14,18,47)]
+
+data <- rename(data, Municipio_ID = cve_ent, Municipio = mpio, DensidadPoblacion2020 = popden2020, CentrosSalud = n, ServiciosSeguridadSocial = porcentaje_pob_acceso_ss, HogaresConJefaDeFamilia = hogremjefmuj2015, PobrezaExtrema = porcentaje_pob_pobreza_ext, RezagoSocial = rezago_social, Casos2021 = Casos2021)
+
+variables <- c('CentrosSalud','DensidadPoblacion2020' , 'ServiciosSeguridadSocial', 'HogaresConJefaDeFamilia', 'PobrezaExtrema', 'RezagoSocial')
+
+#variables <- c("n", "popden2020", "porcentaje_pob_acceso_ss", "hogremjefmuj2015", "porcentaje_pob_pobreza_ext", "rezago_social")
+```
+
+```{r include=FALSE}
+map <- readOGR(dsn = "~/Documents/Octavo Semestre/Planeación estratégica basada en analítica prescriptiva /spda_covid19/shp_mx_mpios/mx_mpios.shp")
+```
+
+## Column {.sidebar data-width="200"}
+
+```{r inputs, echo=FALSE}
+selectInput("variable_choice", label = h5("Escoge una variable a analizar"), choices = variables, variables[1], multiple = TRUE)
+```
+
+```{r reactive expression, echo=FALSE}
+model1 <- reactive({
+  vars <- as.matrix(data[, input$variable_choice])
+  lm(Casos2021 ~ vars, data=data)
+})
+```
+
+## Column {data-width="400"}
+
+```{r model output}
+renderPrint({
+  summary(model1())
+})
+```
+
+```{r table}
+DT::renderDataTable({
+  DT::datatable(data %>% mutate(predicted = predict(model1()), residuals = residuals(model1())) %>% select(Casos2021, predicted, residuals),
+                rownames = FALSE, colnames = c('Casos2021', 'predicted', 'residuals'), extensions = c('Buttons', 'Responsive'),
+                options = list(columnDefs = list(list(className = 'dt-center', targets = "_all")), dom = 'Blfrt',
+                                                 buttons = c('copy', 'csv', 'excel', 'print'), searching = FALSE, lenghtMenu = c(20,100,1000, nrow(data)), scrollY = 300, scrollCollapse = TRUE)) %>% formatRound(c("Casos2021", "predicted", "residuals"))
+})
+```
+
+## Column {data-width="400"}
+
+```{r scatter}
+renderPlotly({
+  plot_ly(data = data, y = ~predict(model1()), x = ~Casos2021, type = "scatter", mode = "markers", marker = list(size = 5, color = '#FFFFF', line = list(color = '#EA6345', width = 2)))
+})
+```
+
+```{r histogram}
+renderPlotly({
+  plot_ly(data, x = ~round(residuals(model1()),2), type = "histogram", marker = list(color = "#EA6345", line = list(color = "#FFFFFF", width = 1)))
+})
+```
+
+## Column {data-width="400"}
+
+```{r}
+d_predicted <- reactive({
+  d_predicted <- data %>% mutate(predicted=predict(model1()), geocode=data$geocode, county=data$county, lat=data$lat, lon=data$lon)
+})
+```
+
+```{r}
+renderPrint({
+  summary(d_predicted())
+})
+```
+
+```{r}
+renderLeaflet({
+  pal <- colorNumeric("YlOrRd", map$CVE_ENT)
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = map,
+              fillColor = ~pal(CVE_ENT), 
+              fillOpacity = 1, 
+              weight = 1)
+ }) 
+```
+
+```{r}
+# Al desarrollar la shiny app se identificó que es una herramienta fácil y practica de usar. En este caso, al plasmar modelos, la herramienta fue útil para observar cambios en resultados e impacto de las variables, además de ser un proceso dinámico, que facilita la comprensión de aquellos que no son usuarios expertos en estadística y/o programación.
+#El proceso de eliminar y agregar variables al modelo fue sencillo y fácil, se observó, por ejemplo, que al agregar la variable de "HogaresConJefaDeFamilia", disminuye la precisión del modelo. 
+# Se observó que el comportamiento de la variable "Rezago Social" cambia dependiendo de las otras variables independientes que se agreguen. Por ejemplo, al evaluar el modelo con las variables de "Rezago Social", "Cantidad de Centros de Salud", "Densidad Poblacional 2020" y "Carencia en el acceso a Servicios de Seguridad Social", la variable es significativa. El modlo presenta una R Cuadrada Ajustada de 71.29%. Sin embargo, al agregar variables como "Pobreza Extrema" y "HogaresConJefasdeFamilia", la variable se vuelve insignificante para el modelo. Y la precisión del modelo se reducé a una R Cuadrada Ajustada de 71.27%.
+# El modelo seleccionado es aquel conformado por las variables de cantidad de centros de salud, densidad poblacional del año 2020, el rezago social, y el porcentaje de población con carencia en el acceso a servicios de salud. El modelo es estadisticamente significativo y presenta una R Cuadrada Ajustada de 71.29%. 
+```
+
