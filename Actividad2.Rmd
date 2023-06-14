@@ -1,0 +1,273 @@
+---
+title: "Actividad 2: Modelos de Regresión Espacial"
+author: "Korina Yeizel Medellín Bañuelos-A01540325 | Ángel Iván Cadena Altamirano-A01706689 | Mauricio García Garza-A01177347 | José Xavier Higuera Alanis-A01204670 | Keyla Patricia Islas Garrido-A01730349"
+date: "2023-05-02"
+output: html_document
+---
+
+AD3003B – Planeación Estartégica Basada en Analítica Prescriptiva  
+Módulo 1 – Modelos Analíticos Avanzados para la Inteligencia de Negocios  
+Feb – Jun 2023
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+library(foreign)
+library(ggplot2)
+library(dplyr)
+library(regclass)
+library(mctest)
+library(lmtest)
+library(spdep)
+library(sf)
+library(spData)
+library(mapview)
+library(spatialreg)
+library(naniar)
+library(dlookr)
+library(caret)
+library(e1071)
+library(SparseM)
+library(Metrics)
+library(randomForest)
+library(rpart.plot)
+library(knitr)
+library(insight)
+library(rgeoda)
+library(rgeos)
+library(jtools)
+library(mice)
+library(rgdal)
+library(tigris)
+
+global <- read.csv("spda_covid19/Global.csv")
+```
+
+## Introducción a la Situación Problema
+
+De acuerdo a la Cámara Nacional de la Industria Farmacéutica, (CANIFARMA) en México las personas en situación de pobreza se caracterizan por tener una probabilidad 5 veces mayor de fallecer por COVID-19 que las personas con relativamente mayor nivel de ingresos (Arceo- Gómez, et al., 2021)2. Además de la falta de acceso a servicios de salud y posibles cormobilidades, otro factor relevante en incrementar dicha probabililidad es el perfil socioeconómico (Arceo-Gómez, et al., 2021).
+
+
+A partir de la pandemia por COVI19, la firma de consultoría XYZ (México) establece que “Las organizaciones que su principal actividad de negocios es brindar servicios de salud requiren soluciones específicas e innovadoras, para aprovechar oportunidades, afrontar retos, así como favorecer su consolidación y crecimiento”. Algunos de los servicios enfocados por parte de la firma es detectar las necesidades y potencial del crecimiento del sector salud a partir de Analítica de Datos.
+
+## Objetivo
+
+Mediante la estimación de diferentes modelos de regresión predeciremos los factores asociados con el incremento / disminción de casos confirmados de COVID-19 a nivel municipal para el caso de México durante el periodo 2020 – 2021.
+
+## Location Intelligence y ESDA
+
+Brevemente, describir cómo el análisis espacial de datos se relaciona con la herramienta
+de inteligencia de negocios “Location Intelligence”
+
+El análisis espacial de datos ayuda a entender el comportamiento de una o más variables en un lugar. La herramienta de Location Intelligence ayuda a mapear el comportamiento de una o más variables y estas se relacionan de manera que permiten obtener insights de las mismas variables en diferentes ubicaciones para contribuir a una mejor toma de decisiones y generacion de objetivos coherentes.
+
+## Regresión no espacial
+
+```{r}
+str(global)
+```
+
+Ahora para homogeneizar las variables las convertimos a numericas y sea mejor el análisis.
+
+```{r warning=FALSE}
+# Se normalizaron variables a numéricas
+global$hogrem2015 <- as.numeric(global$hogrem2015)
+global$hogremjefmuj2015 <- as.numeric(global$hogremjefmuj2015)
+global$popnoafmed2015 <- as.numeric(global$popnoafmed2015)
+global$gini2015 <- as.numeric(global$gini2015)
+global$popden2020 <- as.numeric(global$popden2020)
+```
+
+A continuación veremos si existen NAs.
+
+```{r}
+#Visualizamos los NAs actuales
+gg_miss_var(global, show_pct=TRUE) 
+```
+
+En la gráfica anterior se visualiza que la variable n es la que más NAs contiene.
+
+Ahora eliminamos los NA al reemplazar los valores.
+   
+```{r warning=FALSE, results='hide'}
+#Realizamos el método de Predictive Mean Matching de la librería Mice para eliminar nuestros NAs.
+global_clean <- mice(global, method = "pmm")
+table(is.na(global_clean))
+global_clean <- complete(global_clean)
+gg_miss_var(global_clean, show_pct=TRUE)
+```
+
+Ahora pasamos a limpiar la base de datos
+
+```{r}
+df <- global_clean[,c(2:19,44:46)]
+df["covid2021"] <- rowSums(global_clean[,c(31,32,34:43)])
+df <- df[-1813,]
+df$hogremjefmuj2015[df$hogremjefmuj2015 ==0] <- 0.01
+df$porcentaje_pob_pobreza_ext[df$porcentaje_pob_pobreza_ext ==0] <- 0.01
+df$covid2021[df$covid2021 ==0] <- 0.01
+```
+
+Una vez configurada la base de datos, la particionamos para hacer un conjunto de datos para entrenamiento y pruebas.
+
+```{r}
+set.seed(123)
+partition <- createDataPartition(y = df$covid2021, p=0.75, list=F)
+train = df[partition, ]
+test <- df[-partition, ]
+```
+
+```{r warning=FALSE}
+mx_mpios <- readOGR(dsn = "spda_covid19/shp_mx_mpios/mx_mpios.shp") ### geospatial data. 
+
+mx_geodata<-geo_join(mx_mpios,df,'IDUNICO','cve_ent',how='inner') ### Combining geospatial and non-spatial data
+```
+Se crea una lista de vecinos en la variable swm_queen.
+
+```{r}
+swm_queen <- poly2nb(mx_mpios, queen = TRUE)
+summary(swm_queen)
+```
+
+Ahora para concluir con el método no espacial en rswm_queen le complementamos a la lista de vecinos un peso espacial.
+
+```{r}
+rswm_queen <- nb2listw(swm_queen, style = "W", zero.policy = TRUE)
+rswm_queen
+```
+
+## Modelo de Regresión con ML (Random Forest)
+
+```{r}
+random_forest<-randomForest(covid2021~.,data=train,importance=TRUE, proximity=TRUE) 
+print(random_forest) ### the train data set model accuracy is around 73%.
+```
+
+```{r}
+rf_prediction_test_data <-predict(random_forest,test)
+rmse(rf_prediction_test_data, test$covid2021)
+```
+
+```{r}
+varImpPlot(random_forest, n.var = 13, main = "Top 10 - Variable")
+importance(random_forest)
+```
+
+## Justificación de la regresión espacial por el ESDA
+
+El análisis de regresión espacial que haremos a continuación se justifica ya que el ESDA (Análisis Exploratorio de Datos Espaciales) que realizamos en la actividad 1, por medio del global y local Moran, indica que existe una autocorrelación espacial en los datos. La autocorrelación espacial se refiere a la tendencia de los valores similares a agruparse en el espacio geográfico. Como los datos la presentaron, al usar el análisis de regresión espacial es una técnica de análisis que toma en cuenta esta autocorrelación.
+
+En la actividad 1, observamos agrupaciones del estilo High-High en el caso de los municipios de la Ciudad de México para el ejemplo de casos de Covid, esto significando que si un municipio de la Ciudad de México tiene altos niveles de casos de Covid, sus municipios contiguos mostratrían altos niveles de covid. 
+
+Al tener presencia de autocorrelación espacial significativa, se justifica el uso de la regresión espacial, misma que puede proporcionar información adicional sobre los factores que influyen en los patrones espaciales de los datos. 
+
+Si el ESDA no hubiera indicado autocorrelación espacial significativa, entonces no se justifica el uso de técnicas de análisis espacial, y una regresión lineal simple podría ser suficiente para modelar los datos. Es decir, nuestro trabajo hubiera sido suficiente corriendo solo el random forest anterior.
+
+## Regresión No Espacial
+
+### Modelo de Regresión No Espacial
+```{r}
+### SPATIAL REGRESSION ANALYSIS  
+lm_model_alt <- lm(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), data = mx_geodata)
+summary(lm_model_alt)
+lm.morantest(lm_model_alt, nb2listw(swm_queen)) # Moran's I statistic suggest spatial patterns in our dataset. 
+```
+
+En el modelo anterior no espacial se utilizó un modelo lineal en el que se estableció como variable dependiente el logaritmo de Covid2021 mientras que como variables explicativas se definieron log popden2020, log N, log porcentaje_pob_acceso_ss, hogremjefmuj2015, porcentaje_pob_pobreza_ext y exp rezago social.
+
+Dicho esto el modelo resultó tener las variables de popden2020, n, porcentaje_pop_acceso_ss, porcentaje_pobreza_ext y rezago social como variables estadísticamente significativas en el comportamiento de la dependiente la cual es Covid 2021.
+
+```{r}
+# RMSE
+sqrt(mean((mx_geodata$covid2021 - lm_model_alt$fitted.values)^2))
+```
+
+Ahora al hacer un teste de RMSE se obtuvo un valor de 5205.212 el cual es mayor al del modelo que se realizó de Random Forest.
+
+## Regresiones Espaciales
+
+### Modelo de Autoregresión Espacial
+
+```{r}
+### SPATIAL AUTOGRESSIVE MODEL
+spatial_lag_model <- lagsarlm(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), data=mx_geodata, rswm_queen, method="Matrix", zero.policy = TRUE)
+summary(spatial_lag_model)
+```
+
+```{r}
+# RMSE
+sqrt(mean((mx_geodata$covid2021 - spatial_lag_model$fitted.values)^2))
+```
+
+### Modelo de Error Espacial
+
+```{r}
+### SPATIAL ERROR MODEL
+spatial_error_model <- errorsarlm(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), data=mx_geodata, rswm_queen, method="Matrix")
+summary(spatial_error_model)
+```
+
+
+```{r}
+# RMSE
+sqrt(mean((mx_geodata$covid2021 - spatial_error_model$fitted.values)^2))
+```
+
+
+```{r}
+jtools::export_summs(lm_model_alt, spatial_lag_model, spatial_error_model)
+```
+
+
+```{r}
+### SPATIAL DURBIN MODEL 
+spatial_durbin_model <- lagsarlm(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), data=mx_geodata, rswm_queen, type="mixed")
+summary(spatial_durbin_model)
+sqrt(mean((mx_geodata$covid2021 - spatial_durbin_model$fitted.values)^2))
+```
+
+## Root Mean Square Errors – RMSE 
+
+```{r}
+# summarize RMSE (adding spatial regression results)
+Estimation_Method<-c('RF','LM', 'SAM','SEM', 'SDM')
+RMSE<-c(4263.113,5205.214, 5205.178, 5205.213,5205.181)
+RMSE_df<-data.frame(Estimation_Method,RMSE)
+RMSE_df<-RMSE_df[order(RMSE),]
+
+export_table(RMSE_df, format = "md")
+```
+
+## Principales Hallazgos
+Con base en la situación problema, describir los principales 5-7 hallazgos del análisis de
+regresión.
+
+- Considerando todos los modelos que se realizaron, el que menor RMSE obtuvo fue el random forest el cual no tiene cuenta con ningun analisis espacial de los datos.
+
+- Cuatro de los 5 modelos que se realizaron obtuvieron un RMSE similar de 5205.
+
+- El modelo con una R cuadrada más explicativa es Spatial Error model con un valor del .77 de los datos..
+
+- Comparando el estadístico de AIC se obtuvieron valores de 8080, 8178, 8193 el cual el más bajo pertenece al modelo de Spatial Durbin Model.
+
+- El modelo que mejor rendimiento tuvo fue el Spatial Error Model tomando en cuenta el rmse, las variables que resultaron estadisticamente significativas y la representacion del modelo en los datos.
+
+## Sugerencias
+A partir de los modelos de regresión seleccionados y los hallazgos identificados describir 2-3 sugerencias relacionadas con la toma de decisiones para el crecimiento / expansión territorial de organizaciones orientadas a las prestación de servicios de salud.
+
+- Tomando en cuenta que el rendimiento de todos los modelos fue similar, se sugiere usar un modelo espacial en vez de un de regresión simple ya que permite que el análisis tome en cuenta factores relacionados a la ubicación.
+
+- Dicho esto, es de suma importancia que las organizaciones presten atención para implementar nuevas ubicaciones de salud en el futuro tomando en cuenta factores como la densidad de poblacion, el porcentaje de la poblacion en pobreza extrema y con acceso al seguro social ya que estas variables influyen estadísticamente hablando en el el comportamiendo del covid en las diferentes regiones del país.
+
+- Finalmente si se busca una expansión terrirorial se debe partir por las ubicaciones que presenten una relación espacial positiva en el tema del rezago social junto con una relación espacial negativa con el acceso al seguro social ya que esto implica que la menor posibilidad de atención incrementaría a gravedad y la presencia de la enfermedad en estas ubicaciones y sin capacidad para dar atención sólo empeoraría la situación de salud.
+
+## Referencias
+
+Los datos para la elaboración de la Actividad 2 se obtuiveron de las fuentes del Instituto Nacional de Estadística y Geografía (INEGI) y el Directorio Estadístico Nacional de Unidades Económicas (DENUE).
+
+Cámara Nacional de la Industria Farmacéutica (CANIFARMA).Fuente: https://codigof.mx/en-mexico-las-personas-pobres-tienen-5-veces-mas-probabilidades-de-fallecer-por-covid-19-que-las-de-mayores-ingresos/
+
+Arceo-Gómez, Eva O.; Campos-Vazquez, Raymundo M.; Esquivel, Gerardo; Alcaraz, Eduardo; Martinez,
+Luis A.; y Lopez, Norma G. (2022). The Income Gradient in COVID-19 Mortality and Hospitalisation:
+An Observational Study with Social Security Administrative Records in Mexico. The Lancet Regional
+Health – Americas, 6. Fuente: https://www.sciencedirect.com/science/article/pii/S2667193X21001113?via%3Dihub
+
+Underwood, Jen (N.A.). SAS Insights "Location intelligence: Adding geospatial context to BI". Fuente: https://www.sas.com/en_in/insights/articles/business-intelligence/location-intelligence-adding-geospatial-context-to-bi.html
