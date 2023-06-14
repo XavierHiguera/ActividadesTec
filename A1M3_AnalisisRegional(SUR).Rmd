@@ -1,0 +1,406 @@
+---
+title: "A3M1_GWR"
+author: ""
+output: html_document
+date: "2023-04-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+################################
+### SPATIAL WEIGHT MATRICES  ###
+###         AND              ###
+### LOCAL SPATIAL REGRESSION ###
+################################
+
+### Main Goals: 
+### A) How to compute Spatial Weight Matrix (SWM)
+### B) How to estimate Local Spatial Regression Aanalysis
+### C) Visualize estimated local regression results 
+
+### loading required libraries 
+
+library(dlookr)
+library(fastDummies)
+library(grid)
+library(GWmodel)   
+library(mapview)
+library(regclass)
+library(rgdal)
+library(sf)
+library(spdep)
+library(tidyverse)
+library(tigris)
+library(tmap) 
+library(viridis)
+```
+
+# Regresión Ponderada Geográficamente | Local - México: Región Sur.
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#Importación de bases de datos
+mx_mpios <- readOGR(dsn = "mx_mapas_regiones/mx_mapas_regiones/mapa_region_sur/mapa_region_sur.shp") ### geospatial data. 
+global <- read_csv("Region_Sur.csv") ### non-spatial data
+
+#Limpieza y transformación de datos
+global["n"][is.na(global["n"])] <- 0
+global$hogrem2015 <- as.numeric(global$hogrem2015)
+global$hogremjefmuj2015 <- as.numeric(global$hogremjefmuj2015)
+global$popnoafmed2015 <- as.numeric(global$popnoafmed2015)
+global$gini2015 <- as.numeric(global$gini2015)
+global$popden2020 <- as.numeric(global$popden2020)
+global["hogrem2015"][is.na(global["hogrem2015"])] <- mean(global$hogrem2015, na.rm = TRUE)
+global["hogremjefmuj2015"][is.na(global["hogremjefmuj2015"])] <- mean(global$hogremjefmuj2015, na.rm = TRUE)
+global["popnoafmed2015"][is.na(global["popnoafmed2015"])] <- mean(global$popnoafmed2015, na.rm = TRUE)
+global["gini2015"][is.na(global["gini2015"])] <- mean(global$gini2015, na.rm = TRUE)
+global["popden2020"][is.na(global["popden2020"])] <- mean(global$popden2020, na.rm = TRUE)
+
+# Obtención de columna casos de covid del 2021
+# No se considera la repetición de la columna mar_2021
+global["covid2020"] <- rowSums(global[,c(20:30)])
+global["covid2021"] <- rowSums(global[,c(31,32,34:43)])
+global <- select(global, -c(20:43))
+
+#Creación de Dummies
+global <- select(global, -c(mpio, entidad)) # So we don't have too many rows
+global <- dummy_cols(global)
+global <- select(global, -c(...1, grado_rs))
+
+#Union de bases de datos
+mx_geodata<-geo_join(mx_mpios,global,'IDUNICO','cve_ent',how='inner') ### Combining geospatial and non-spatial data
+```
+
+A continuación se mapean las variables seleccionadas y se puede observar su comportamiento a lo largo de la Región Sur del país que integra los Estados de Campeche, Chiapas, Guerrero, Oaxaca, Quintana Roo, Tabasco, Veracruz, y Yucatán
+
+```{r}
+qtm(mx_geodata, "n")
+```
+
+N - Referente al número de organizaciones dedicadas a la salud o que estuvieron en contacto directo y ofrecieron sus servicios a personas infectadas. Se observa que la mayoría de los municipios en la Región Sur tienen de 0 a 500 lugares que brindaron servicios de salud, sin embargo, a lo largo de la región encontramos municipios que son la excepción y pueden llegar a contar con más de 1,000 y uno en específico con más de 2,500. Con esta visualización se supone que la cantidad de unidades de salud en la Región Sur cuenta con una autocorrelación espacial aleatoria o nula.
+
+```{r}
+qtm(mx_geodata, "popden2020")
+```
+
+POPDEN2020 - Densidad de población en 2020, podemos observar que la mayoría de los municipios tienen menos de 1000 habitantes por metro cuadrado pero al igual que el caso anterior hay municipios que cuentan con una densidad de población mayor que llega a superar los 6,000 habitantes; se tiene el supuesto de que estos municipios son las cabeceras municipales de sus estados o zonas comerciales. En base a esta visualización observamos que la densidad de población cuenta con una autocorrelación espacial positiva débil.
+
+```{r}
+qtm(mx_geodata, "porcentaje_pob_acceso_ss")
+```
+
+PORCENTAJE_POB_ACCESO_SS - Referente al porcentaje de la población que carece de acceso a servicios de seguridad social durante el 2020. En esta visualización podemos observar mayor diversidad en el comportamiento de la variable en los distintos municipios, Aunque se nota ahora una tendencia a formar agrupaciones estas no están completamente definidas y no se diferencian entre sí por lo que se supone que se presenta una autocorrelación espacial positiva moderada.
+
+```{r}
+qtm(mx_geodata, "hogremjefmuj2015")
+```
+HOGREMJEFMUJ2015 - Porcentaje de hogares con jefas de familia que recibieron remesas durante 2015. Al igual que la variable anterior podemos observar una buena diversidad en el comportamiento de la variable a lo largo de la Región y una tendencia mínima a la agrupación de valores altos en lo que parecen ser los bordes de esta misma, sin embargo, estas agrupaciones están aún menos definidas que en la variable anterior y en la zona centro son difíciles de diferenciar por lo que se considera que existe una autocorrelación espacial débil. 
+
+```{r}
+qtm(mx_geodata, "porcentaje_pob_pobreza_ext")
+```
+PORCENTAJE_POB_POBREZA_EXT - Porcentaje de la población en situación de pobreza extrema en 2020. Esta variable a diferencia de las demás parece mostrar tres agrupaciones más definidas: en el centro, al sur y en la península por lo que cuenta con una autocorrelación espacial positiva moderada. 
+
+```{r}
+qtm(mx_geodata, "rezago_social")
+```
+
+REZAGO_SOCIAL - Indicador de Rezago Social. De manera similar a la variable anterior se pueden observar de manera casi definida la formación de 3 grupos en el centro, sur y península de la región, debido a esto se mantiene el supuesto de que hay una autocorrelación espacial positiva fuerte.
+
+
+## Modelización de vecinos espaciales y matrices de conectividad espacial
+### Enfoque de Contigüidad Queen
+
+Dentro de la Región Sur existen 1122 municipios, en enfoque de contigüidad Queen que considera como vecinos aquellos con los que se comparten aristas y vértices (es decir, cualquiera que comparta un borde en el espacio) nos arroja que los siete municipios más conectados cuentan con 22 vecinos colindantes mientras que los tres municipios menos conectados solo con 1.
+
+
+```{r}
+swm_queen <- poly2nb(mx_geodata, queen = TRUE)
+summary(swm_queen)
+```
+
+La matriz de conectividad correspondiente a este enfoque nos muestra la distribución y relación entre municipios colindantes a lo largo de la región. Se pueden observar agrupaciones en tres áreas correspondientes al centro del país, una zona al sur y además la Península Yucatán; este comportamiento se debe a que existen múltiples municipios con poco territorio en la misma zona sin embargo, observamos que las líneas solo se conectan a los municipios que comparten sus fronteras. 
+
+```{r, warning = FALSE, eval = FALSE, include = FALSE}
+plot(mx_geodata, borders = 'lightgrey') 
+plot(swm_queen, coordinates(mx_geodata), pch = 19, cex = 0.6, add = TRUE, col = "red")
+title(main = "Queen Contiguity", cex.main = 0.9)
+```
+
+Continuando con este enfoque, veamos el comportamiento de las variables geográficamente considerando el rezago espacial correspondiente y comparándolo con su forma indemne cuya interpretación puede encontrarse en al inicio del apartado de la Región Sur. 
+
+```{r}
+rswm_queen <- nb2listw(swm_queen, style = "W", zero.policy = TRUE)
+rswm_queen
+```
+
+
+```{r}
+mx_geodata$lag_nQ <-lag.listw(rswm_queen,mx_geodata$n,zero.policy=TRUE)
+
+mx_geodata$lag_popden2020Q <-lag.listw(rswm_queen,mx_geodata$popden2020,zero.policy=TRUE)
+
+mx_geodata$lag_porcentaje_pob_acceso_ssQ <-lag.listw(rswm_queen,mx_geodata$porcentaje_pob_acceso_ss,zero.policy=TRUE)
+
+mx_geodata$lag_hogremjefmuj2015Q <-lag.listw(rswm_queen,mx_geodata$hogremjefmuj2015,zero.policy=TRUE)
+
+mx_geodata$lag_porcentaje_pob_pobreza_extQ <-lag.listw(rswm_queen,mx_geodata$porcentaje_pob_pobreza_ext,zero.policy=TRUE)
+
+mx_geodata$lag_rezago_socialQ <-lag.listw(rswm_queen,mx_geodata$rezago_social,zero.policy=TRUE)
+```
+
+```{r, eval = FALSE, include = FALSE}
+median_popden2020 <- qtm(mx_geodata, "popden2020")
+
+median_n <- qtm(mx_geodata, "n")
+
+median_porcentaje_pob_acceso_ss <- qtm(mx_geodata, "porcentaje_pob_acceso_ss")
+
+median_hogremjefmuj2015 <- qtm(mx_geodata, "hogremjefmuj2015")
+
+median_porcentaje_pob_pobreza_ext <- qtm(mx_geodata, "porcentaje_pob_pobreza_ext")
+
+median_rezago_social <- qtm(mx_geodata, "rezago_social")
+```
+
+N - Referente al número de organizaciones dedicadas a la salud o que estuvieron en contacto directo y ofrecieron sus servicios a personas infectadas. La variable indemne muestra una autocorrelación espacial aleatoria o nula y muestra algunos municipios a lo largo de la región que cuentan con una cantidad superior de organizaciones en su territorio. Aplicando el rezago espacial se muestra el mismo comportamiento sin embargo, observamos los municipios con una cantidad mayor de unidades de salud se concentran en zonas de Veracruz, Guerrero, ‘Chiapas y Tabasco’ y ‘Yucatán y Quintana Roo’,  estas agrupaciones tienen pocos componentes por lo que se considera que la autocorrelación espacial es positiva débil lo cual es confirmado al emplear el Moran I test que nos da un resultado de 0.39 estadísticamente significativo. 
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_nQ <- qtm(mx_geodata, "lag_nQ")
+tmap_arrange(median_n, spatial_lag_nQ, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_nQ, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+POPDEN2020 - Densidad de población en 2020. La variable indemne cuenta con una autocorrelación espacial positiva débil. Al aplicar el rezago espacial a esta variable vemos la formación de dos grupos definidos pero con pocos integrantes que cuentan con una densidad de población más alta en los Estados de Oaxaca y Veracruz debido a esto se considera que la autocorrelación espacial es positiva fuerte lo que se confirma con el Moran I test de 0.71 estadísticamente significativo.
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_popden2020Q <- qtm(mx_geodata, "lag_popden2020Q")
+tmap_arrange(median_popden2020, spatial_lag_popden2020Q, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_popden2020Q, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+PORCENTAJE_POB_ACCESO_SS - Referente al porcentaje de la población que carece de acceso a servicios de seguridad social durante el 2020. La variable indemne presenta una autocorrelación espacial positiva moderada. Al aplicar el rezago espacial observamos que la variable forma varios grupos definidos y resaltan zonas de ‘Guerrero - Oaxaca’, ‘Oaxaca-Veracruz’,’Chiapas-Tabasco-Campeche’ y ‘Yucatán-Quintana Roo’ se estima que se cuenta con una autocorrelación espacial positiva muy fuerte lo cual se confirma con el Moran I test de 0.81 y estadísticamente significativo.
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_porcentaje_pob_acceso_ssQ <- qtm(mx_geodata, "lag_porcentaje_pob_acceso_ssQ")
+tmap_arrange(median_porcentaje_pob_acceso_ss, spatial_lag_porcentaje_pob_acceso_ssQ, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_porcentaje_pob_acceso_ssQ, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+HOGREMJEFMUJ2015 - Porcentaje de hogares con jefas de familia que recibieron remesas durante 2015. Para la variable indemne se considera que existe una autocorrelación espacial débil. Al aplicar el rezago espacial podemos observar que los valores altos tienden a agruparse en algunas zonas, especialmente aquellas que se ven cercanas al océano, esto implica que hay una mejora en la autocorrelación espacial y en este caso es positiva y fuerte, esto se confirma con un moran I test de 0.72 estadísticamente significativo.
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_hogremjefmuj2015Q <- qtm(mx_geodata, "lag_hogremjefmuj2015Q")
+tmap_arrange(median_hogremjefmuj2015, spatial_lag_hogremjefmuj2015Q, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_hogremjefmuj2015Q, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+PORCENTAJE_POB_POBREZA_EXT - Porcentaje de la población en situación de pobreza extrema en 2020. Esta variable a diferencia de las demás parece mostrar tres agrupaciones casi definidas: en el centro, al sur y en la península por lo que cuenta con una autocorrelación espacial positiva moderada en su forma indemne. Al aplicar el rezago espacial la definición de estas tres regiones mejora considerablemente por lo que la autocorrelación espacial parece ser ahora positiva y muy fuerte confirmado con un Moran I test de 0.84 estadísticamente significativo.
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_porcentaje_pob_pobreza_extQ <- qtm(mx_geodata, "lag_porcentaje_pob_pobreza_extQ")
+tmap_arrange(median_porcentaje_pob_pobreza_ext, spatial_lag_porcentaje_pob_pobreza_extQ, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_porcentaje_pob_pobreza_extQ, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+REZAGO_SOCIAL - Indicador de Rezago Social. De manera similar a la variable anterior en su forma indemne se pueden observar las mismas zonas un poco más definidas, por esto mismo se piensa que hay una autocorrelación espacial positiva fuerte. Al aplicar el rezago espacial vemos que los grupos en estas zonas se definen de mejor manera por lo que la autocorrelación espacial mejora y llega a ser muy fuerte con un Moran I test de 0.86 estadísticamente significativo.
+
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_rezago_socialQ <- qtm(mx_geodata, "lag_rezago_socialQ")
+tmap_arrange(median_rezago_social, spatial_lag_rezago_socialQ, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_rezago_socialQ, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+
+
+#### KNN
+
+```{r}
+### cálculo de la distancia entre vecinos
+coords <- coordinates(mx_geodata)
+head(coords)
+```
+
+```{r}
+knn1 <- knn2nb(knearneigh(coords))
+knn1_dist <- unlist(nbdists(knn1, coords, longlat = TRUE))
+summary(knn1_dist)
+```
+
+```{r}
+dwm <- dnearneigh(coords, 0 ,max(knn1_dist), longlat = TRUE)
+dwm 
+```
+
+```{r, warning = FALSE, eval = FALSE, include = FALSE}
+plot(mx_geodata, border = "lightgrey")
+plot(dwm, coords, add = TRUE, pch = 19, cex = 0.6, col = "blue")
+title(main = "Neighbours within 108 km", cex.main = 0.9)
+```
+
+```{r}
+rdwm <- nb2listw(dwm, style = "W", zero.policy = TRUE)
+rdwm
+```
+
+
+
+```{r}
+mx_geodata$lag_nD <-lag.listw(rdwm,mx_geodata$n,zero.policy=TRUE)
+
+mx_geodata$lag_popden2020D <-lag.listw(rdwm,mx_geodata$popden2020,zero.policy=TRUE)
+
+mx_geodata$lag_porcentaje_pob_acceso_ssD <-lag.listw(rdwm,mx_geodata$porcentaje_pob_acceso_ss,zero.policy=TRUE)
+
+mx_geodata$lag_hogremjefmuj2015D <-lag.listw(rdwm,mx_geodata$hogremjefmuj2015,zero.policy=TRUE)
+
+mx_geodata$lag_porcentaje_pob_pobreza_extD <-lag.listw(rdwm,mx_geodata$porcentaje_pob_pobreza_ext,zero.policy=TRUE)
+
+mx_geodata$lag_rezago_socialD <-lag.listw(rdwm,mx_geodata$rezago_social,zero.policy=TRUE)
+```
+
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_nD <- qtm(mx_geodata, "lag_nD")
+tmap_arrange(median_n, spatial_lag_nD, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_nD, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_popden2020D <- qtm(mx_geodata, "lag_popden2020D")
+tmap_arrange(median_popden2020, spatial_lag_popden2020D, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_popden2020D, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_porcentaje_pob_acceso_ssD <- qtm(mx_geodata, "lag_porcentaje_pob_acceso_ssD")
+tmap_arrange(median_porcentaje_pob_acceso_ss, spatial_lag_porcentaje_pob_acceso_ssD, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_porcentaje_pob_acceso_ssD, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_hogremjefmuj2015D <- qtm(mx_geodata, "lag_hogremjefmuj2015D")
+tmap_arrange(median_hogremjefmuj2015, spatial_lag_hogremjefmuj2015D, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_hogremjefmuj2015D, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_porcentaje_pob_pobreza_extD <- qtm(mx_geodata, "lag_porcentaje_pob_pobreza_extD")
+tmap_arrange(median_porcentaje_pob_pobreza_ext, spatial_lag_porcentaje_pob_pobreza_extD, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_porcentaje_pob_pobreza_extD, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+```{r, eval = FALSE, include = FALSE}
+spatial_lag_rezago_socialD <- qtm(mx_geodata, "lag_rezago_socialD")
+tmap_arrange(median_rezago_social, spatial_lag_rezago_socialD, asp = 1, ncol =2)
+```
+```{r}
+moran.test(mx_geodata$lag_rezago_socialD, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+
+#### Modelación.
+
+
+```{r, eval = FALSE, include = FALSE}
+plot_normality(select(global, c("n","popden2020", "porcentaje_pob_acceso_ss", "hogremjefmuj2015", "porcentaje_pob_pobreza_ext", "covid2021", "rezago_social")))
+```
+
+```{r}
+summary(mx_geodata$hogremjefmuj2015)
+summary(mx_geodata$covid2021)
+summary(mx_geodata$n)
+```
+
+```{r}
+mx_geodata@data$hogremjefmuj2015[mx_geodata@data$hogremjefmuj2015 ==0] <- 0.01
+mx_geodata@data$n[mx_geodata@data$n ==0] <- 0.01
+mx_geodata@data$covid2021[mx_geodata@data$covid2021 ==0] <- 0.01
+```
+
+El primer modelo es un modelo de regresión no espacial. Transformamos primero las variables de acuerdo a lo sugerido para que su distribucion sea normal en el modelo A. Las variables estadísticamente significativas son log(popden2020), log(n) y sqrt(rezago_social + 1.32) y tenemos una R cuadrada de 0.58 sin embargo nuestros residuales presentan una autocorrelación espacial débil con un moran test de 0.24 lo que presenta un sesgo espacial y el modelo no es apto.
+```{r}
+# non- spatial regression results
+non_spatial_modelA = lm(log(covid2021) ~ log(popden2020) + log(n) + porcentaje_pob_acceso_ss + hogremjefmuj2015 + sqrt(porcentaje_pob_pobreza_ext) + sqrt(rezago_social+1.32), data = mx_geodata@data)
+
+#Rezago social + 1.32 para que el valor sea positivo y pueda aplicarse la transformacion
+
+summary(non_spatial_modelA)
+VIF(non_spatial_modelA)
+moran.test(non_spatial_modelA$residuals, rswm_queen)
+```
+
+Con la intención de mejorar el modelo se aplican transformaciones diferentes a las variables seleccionadas para el análisis y observamos las mismas tres variables principales estadisticamente significativas popden2020, n y rezago_social; por su lado hogremjefmuj2015 y porcentaje_pob_pobreza_ext mejoraron con una transformación log mientras que porcentaje_pob_acceso_ss disminuyó su significancia a pesar de no implementar ninguna transformación. Este modelo tiene una mejora minima de R^2 con 0.5805 y sus residuos tambien disminuyeron un poco en cuanto autocorrelación espacial por lo que aun se presenta un sesgo y el modelo no es apto.
+```{r}
+non_spatial_modelB = lm(log(covid2021) ~ log(popden2020) + log(n) + porcentaje_pob_acceso_ss + log(hogremjefmuj2015) + log(porcentaje_pob_pobreza_ext) + sqrt(rezago_social+1.32), data = mx_geodata@data)
+
+summary(non_spatial_modelB)
+VIF(non_spatial_modelB)
+moran.test(non_spatial_modelB$residuals, rswm_queen)
+```
+
+
+```{r}
+# convert to sp
+mx_mpios = as(mx_mpios, "Spatial")
+```
+
+Pasando a la creación de modelos espaciales tenemos los siguientes. 
+
+Como podemos observar el modelo creado con el parametro adaptive = True que ajusta todas las entradas de datos con unidades espaciales correspondientes muestra valores AIC menores por lo tanto es el mejor. 
+```{r message=FALSE, warning=FALSE}
+bw1 <- bw.gwr(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), approach = "AIC", adaptive = T, data=mx_geodata)
+```
+
+```{r}
+# determine the kernel bandwidth
+bw2 <- bw.gwr(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), approach = "AIC", adaptive = F, data=mx_geodata)
+```
+Continuando con el ajuste del modelo tenemos los siguientes resultados:
+En el caso del modelo global, las variables referentes al acceso a servicios sociales y al porcentaje hogares con jefas de familia que recibieron remesas no son significativas para el modelo, sobre todo esta última. 
+Las demás variables fueron usadas con transformaciones para que presentaran un comportamiento normal en el modelo. Al final el modelo presenta una R^2 de 0.57 y es estadisticamente significativo además nos muestra un AIC de 4455.6
+
+En caso de la Geographically Weighted Regressiontenemos el uso de 169 vecinos cercanos .
+```{r}
+# fit the GWR model
+m.gwr <- gwr.basic(log(covid2021) ~ log(popden2020) + log(n) + log(porcentaje_pob_acceso_ss) + hogremjefmuj2015 + porcentaje_pob_pobreza_ext + exp(rezago_social), adaptive = T, data = mx_geodata, bw = bw1)  
+
+m.gwr
+```
+
+```{r}
+# Mapping GWR outputs
+gwr_sf = st_as_sf(m.gwr$SDF) # Se guarda toda la base de datos de la estimación
+
+class(gwr_sf)
+```
+A continuación se muestra la predicción de la variable dependiente referente a los casos de covid durante 2021.
+```{r}
+# local prediction of dependent variable  
+gwr_sf$y_predicted <- exp(gwr_sf$yhat)
+mapview(gwr_sf, zcol="y_predicted")
+```
