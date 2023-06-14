@@ -1,0 +1,596 @@
+---
+title: "Módulo 1 - Evaluación Integradora-1"
+author: "José Xavier Higuera Alanis - A01204670"
+date: "2023-05-12"
+output: 
+  html_document: 
+    code_folding: show
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+---
+
+AD3003B – Planeación Estartégica Basada en Analítica Prescriptiva
+
+Módulo 1 – Modelos Analíticos Avanzados para la Inteligencia de Negocios
+
+Feb – Jun 2023
+
+# Evaluación Integradora
+
+## PARTE I (45%)
+
+### 1) Describir al menos 3-5 diferencias entre la estimación de modelo de regresión no espacial, espacial global, y espacial local.
+
+**No espacial:** La regresión no espacial ignora la covarianza espacial entre las observaciones. Esto significa que no tiene en cuenta la posibilidad de que los valores de la variable dependiente en diferentes ubicaciones estén relacionados entre sí. Como resultado, los modelos de regresión no espacial pueden ser sesgados e ineficientes.
+
+**Espacial global:** La regresión espacial global tiene en cuenta la covarianza espacial entre las observaciones, pero solo a nivel global. Esto significa que calcula un solo valor para la covarianza espacial, que se utiliza para ajustar el modelo. Como resultado, los modelos de regresión espacial global pueden ser menos precisos que los modelos de regresión espacial local, ya que no pueden captar las variaciones locales en la covarianza espacial.
+
+**Espacial local:** La regresión espacial local tiene en cuenta la covarianza espacial entre las observaciones, pero a nivel local. Esto significa que calcula un valor diferente para la covarianza espacial para cada observación. Como resultado, los modelos de regresión espacial local pueden ser más precisos que los modelos de regresión espacial global, ya que pueden captar las variaciones locales en la covarianza espacial.
+
+#### Fuente:
+
+• Kanade,Vijay (2022). What is Spatial Data Analysis? Definition, Working, and Examples.
+https://www.spiceworks.com/tech/artificial-intelligence/articles/what-is-spatial-analysis/
+  
+
+### 2) Describir al menos 3-5 diferencias entre la estimación de modelos de regresión OLS (no espacial), SAR, y SEM.
+
+**Enfoque en la autoregresión espacial:** A diferencia de OLS, que no considera la autocorrelación espacial de los datos, tanto SAR como SEM son modelos de regresión espacial que tienen en cuenta la dependencia espacial de las variables. En SAR, se utiliza la autoregresión espacial para modelar la relación entre la variable dependiente y las variables independientes, mientras que en SEM se consideran los errores espaciales.
+
+**Tratamiento de la autocorrelación espacial:** OLS no considera la autocorrelación espacial en los datos y puede generar estimaciones sesgadas e ineficientes. SAR y SEM sí la pueden manejar, lo que mejora la precisión de las estimaciones. En SAR, la autocorrelación espacial se trata mediante el uso de una matriz de pesos espaciales (Spaial Weighted Matrix de 0s y 1s), mientras que en SEM se modela mediante una matriz de covarianza espacial que incluye en el error estos valores.
+
+**Interpretación de los coeficientes:** En OLS, los coeficientes representan el cambio en la variable dependiente asociado a un cambio unitario en la variable independiente. En SAR y SEM, los coeficientes representan el cambio en la variable dependiente asociado a un cambio unitario en la variable independiente, teniendo en cuenta la dependencia espacial de los datos (sin considerar transformaciones).
+
+**Flexibilidad del modelo:** OLS es un modelo muy flexible que se puede aplicar a una amplia gama de datos, mientras que SAR y SEM son modelos más específicos que solo se aplican a datos espaciales. Sin embargo, SAR y SEM tienen la ventaja de ser más adecuados para modelar datos espaciales y pueden proporcionar estimaciones más precisas que OLS.
+
+#### Fuente:
+
+• Raymond J. G. M., Florax and Nijkamp, Peter. (2005). Misspecification in Linear Spatial Regression Models.
+Encyclopedia of Social Measurement: 695 - 707. https://www.sciencedirect.com/science/article/pii/B0123693985003510
+
+### 3) Describir autocorrelación espacial, autocorrelación espacial positiva, y autocorrelación espacial negativa.
+
+La **autocorrelación espacial** es una medida estadística que se utiliza para analizar la similitud de los valores de una variable geográfica en diferentes lugares. Es decir, se trata de un análisis que permite determinar si las observaciones espaciales están relacionadas entre sí o si son independientes.
+
+La **autocorrelación espacial positiva** se da cuando los valores similares se agrupan en el espacio. Esto significa que las áreas cercanas tienen valores similares en la variable analizada. Por ejemplo, en una ciudad, las áreas residenciales pueden tener valores similares de ingresos y nivel educativo, lo que indica una autocorrelación espacial positiva.
+
+La **autocorrelación espacial negativa**, por otro lado, se produce cuando los valores diferentes se distribuyen de manera aleatoria en el espacio. En este caso, no hay una relación espacial entre las observaciones de la variable analizada. Por ejemplo, en una ciudad, la distribución de tiendas de diferentes tipos puede ser aleatoria, lo que indica una autocorrelación espacial negativa.
+
+Para medir la autocorrelación espacial se utilizan diferentes índices, entre los que destaca el índice de Moran. Este índice permiten cuantificar la autocorrelación espacial en un rango que va de -2 (autocorrelación negativa perfecta) a +2 (autocorrelación positiva perfecta).
+
+#### Fuente:
+
+• Saucedo, David. (Feb, 2023). "MODULE 1: SPATIAL DATA ANALYSIS". Department of Marketing and Analysis, ITESM – Campus Monterrey. Slides 14-20.
+
+### 4) Describir al menos 3-5 diferencias entre GWR y GRF.
+
+**GWR (Geographically Weighted Regression)** y **GRF (Geographically Weighted Random Forest)** son dos técnicas de modelado geoespacial que se utilizan para analizar datos que varían espacialmente. Algunas diferencias son:  
+
+- Enfoque de modelado: GWR es un modelo de regresión que se utiliza para modelar la relación entre una variable dependiente y varias variables independientes. GRF, por otro lado, es una variante del algoritmo de Random Forest que se utiliza para modelar la relación entre una variable dependiente y varias variables independientes, pero de manera no lineal.
+
+- Interpretación de resultados: GWR proporciona una salida que es específica para cada ubicación geográfica, lo que significa que se pueden hacer interpretaciones de los resultados a nivel local. Por otro lado, los resultados de GRF no son fácilmente interpretables a nivel local, ya que el modelo se ajusta en diferentes formas a diferentes ubicaciones geográficas.
+
+- Criterios de selección de variables: GWR utiliza técnicas de selección de variables basadas en la información de AIC (criterio de información de Akaike). GRF utiliza la importancia de la variable para seleccionar las variables más importantes en el modelo.
+
+#### Fuente:
+
+• Deng, M., & Wu, F. (2018). Geographically weighted random forests: A spatial extension of random forests. International Journal of Applied Earth Observation and Geoinformation, 66, 64-73.
+
+### 5) Describir cómo el proceso de análisis espacial de datos puede mejorar las herramientas de Descriptive Analytics y Predictive Analytics en un contexto de Inteligencia de Negocios.
+
+El análisis espacial de datos es una técnica que permite estudiar y visualizar los datos en términos de su ubicación geográfica o posición en un espacio determinado. Esto puede ser muy útil en el contexto de inteligencia de negocios, ya que muchas veces la información relacionada con los negocios está geográficamente referenciada. Por ejemplo, las ventas de una tienda pueden variar según su ubicación, el clima de la región, la densidad poblacional, entre otros factores.
+
+El análisis espacial de datos puede mejorar las herramientas de Descriptive Analytics y Predictive Analytics al proporcionar una dimensión adicional de información que de otro modo podría ser ignorada o no considerada. En analítica descriptiva, el análisis espacial puede ayudar a identificar patrones y tendencias geográficas en los datos, lo que puede llevar a una mejor comprensión del comportamiento del consumidor y al descubrimiento de oportunidades de mercado en ubicaciones específicas.
+
+En cuanto a analítica predictiva, el análisis espacial puede permitir la creación de modelos más precisos que tomen en cuenta la ubicación y otras variables geográficas en la predicción de eventos futuros, como la demanda del mercado o el rendimiento de una campaña publicitaria en una determinada región.
+
+Adicional a las herramientas que vimos en el curso, una herramienta comúnmente utilizada para el análisis espacial de datos es el Sistema de Información Geográfica (GIS) que puede correrse con Python, que permite la visualización de datos georreferenciados y el análisis de patrones espaciales.
+
+#### Fuente:
+
+ESRI (2021). What is GIS? Retrieved from https://www.esri.com/en-us/what-is-gis/overview
+
+## PARTE II (55%)
+
+Realizaremos un análisis espacial de datos que permita explorar e identificar los factores asociados con el precio de las casas en Columbus, OH, USA.
+
+Nuestro principal objetico es explorar los factores potenciales relacionados con el precio promedio de los hogares en Columbus, Ohio para el año 1980. Este R-Script puede ayudar con la revisión y desempeño de las siguientes herramientas:
+
+- Cómo calcular una matriz de pesos espaciales (SWM).
+- Visualizar y detectar agrupaciones espaciales de variables de interés en el espacio.
+- Cómo estimar Análisis de Regresión Espacial Global y Local.
+- Estimar y comparar Resultados de Regresión No Espaciales conta Espaciales Globales contra Espaciales Locales.
+- Visualizar resultados estimados de regresión local.
+
+Importamos nuestras librerías necesarias, así como los datos necesarios.
+
+```{r warning=FALSE, message=FALSE}
+library(sf)
+library(tmap)
+library(spdep)
+library(rgdal)
+library(tidyverse)
+library(tigris)
+library(mapview)
+library(GWmodel)    
+library(regclass)
+library(viridis)
+library(grid)
+library(RColorBrewer)
+library(rgeoda)
+library(sjPlot)
+library(jtools)
+library(dlookr)
+library(SpatialML)
+library(spgwr)
+library(grid)
+library(spData)
+library(maptools)
+library(insight)
+```
+
+El Data Frame tiene 49 filas y 22 columnas. Las unidades a analizar son 49 vecindarios en Columbus, Ohio con datos de 1980. Adicionalmente, este data set incluye un objeto polylist con los límites de los vecindarios, una matriz con las coordenadas de los centroides de los poligonos y "col.gal.nb" que es una lista adicional de los vecindarios en el archivo de formato GAL original. 
+
+```{r warning=FALSE}
+data(columbus) ### dataset
+columbus_shp <- readShapePoly(system.file("etc/shapes/columbus.shp",package="spdep"))
+### shapefile
+col.gal.nb <- read.gal(system.file("etc/weights/columbus.gal", package="spdep"))
+### spatial connectivity matrix but it requires to calculate the spatial weights.
+swm_queen <- poly2nb(columbus_shp, queen = TRUE)
+### Lets standardize the queen spatial connectivity matrix (W stands for weighted) so we can assign greater importance (weights) to the nearest neighbors than distant neighbors.
+rswm_queen <- nb2listw(swm_queen, style = "W", zero.policy = TRUE)
+```
+
+Visualizamos los datos del Valor de los Hogares promedio por vecindario
+
+```{r}
+mapview(columbus_shp, zcol = "HOVAL")
+```
+
+Y, aunque nuestros datos se ven distribuidos aleatoriamente para las propiedades que se encuentran entre los 30 y 70 mil usd, podemos notar que al este de Ohio las propiedades tienden a tener un mayor valor, mientras que en el centro se concentran las de menor valor. Esto puede suponer que no está distribuido de manera aleatoria en el territorio.
+
+### 1) Análisis Exploratorio de Datos (EDA)
+
+Iniciamos nuestro análisis, explorando las variables que vamos a utilizar en esta actividad, mismas que enlistamos a continuación:
+
+```{r}
+str(columbus_shp@data)
+```
+
+Su descripción la encontramos en el link de la base de datos (https://search.r-project.org/CRAN/refmans/RgoogleMaps/html/columbus.html), que es la siguiente:
+
+- AREA: computed by ArcView
+- PERIMETER: computed by ArcView
+- COLUMBUS.: internal polygon ID (ignore)
+- COLUMBUS.I: another internal polygon ID (ignore)
+- POLYID: yet another polygon ID
+- NEIG: neighborhood id value (1-49); conforms to id value used in Spatial Econometrics book.
+- HOVAL: housing value (in \$1,000)
+- INC: household income (in \$1,000)
+- CRIME: residential burglaries and vehicle thefts per thousand households in the neighborhood
+- OPEN: open space in neighborhood
+- PLUMB: percentage housing units without plumbing
+- DISCBD: distance to Central Business District (CBD)
+- X: x coordinate (in arbitrary digitizing units, not polygon coordinates)
+- Y: y coordinate (in arbitrary digitizing units, not polygon coordinates)
+- NSA: north-south dummy (North=1, South=0)
+- NSB: north-south dummy (North=1, South=0)
+- EW: east-west dummy (East=1, West=0)
+- CP: core-periphery dummy (Core=1, Periphery=0)
+- THOUS: constant=1,000
+- NEIGNO: NEIG+1,000, alternative neighborhood id value
+
+Podemos observar algunos de sus principales estadísticos descriptivos con el siguiente summary:
+
+```{r}
+summary(columbus_shp@data)
+```
+```{r}
+# identificamos relaciones potenciales entre nuestras variables de interés.
+dummy <- columbus_shp@data %>% select(AREA, PERIMETER, HOVAL, INC, CRIME, OPEN, PLUMB, DISCBD, NSA, NSB, EW, CP)
+correlate(dummy, AREA, PERIMETER, HOVAL, INC, CRIME, OPEN, PLUMB, DISCBD, NSA, NSB, EW, CP) %>%  plot()
+```
+```{r}
+# Hacemos un zoom de todas las variables con nuestra variable dependiente.
+correlate(dummy, HOVAL) %>%  plot()
+```
+
+Corremos Boxplots de algunas de nuestras variables de mayor interés:
+
+```{r warning=FALSE}
+library(patchwork)
+
+g1 <- ggplot(columbus_shp@data, aes(x = "HOVAL", y=HOVAL)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+g2 <- ggplot(columbus_shp@data, aes(x = "INC", y=INC)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+g3 <- ggplot(columbus_shp@data, aes(x = "CRIME", y=CRIME)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+g4 <- ggplot(columbus_shp@data, aes(x = "DISCBD", y=DISCBD)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+
+g5 <- ggplot(columbus_shp@data, aes(x = "OPEN", y=OPEN)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+g6 <- ggplot(columbus_shp@data, aes(x = "CP", y=CP)) + 
+  geom_boxplot(color="red", fill="orange", alpha=0.2)
+
+(g1 | g2 | g3) / (g4 | g5 | g6)
+```
+
+
+Realizamos el Normality para determinar si se requiere una transformación de las variables de interés para mejorar la estimación e interpretación de los resultados (log, x^2, variables categoricas, etc.).
+
+```{r}
+plot_normality(select(columbus_shp@data,c(7:12,18)))
+```
+
+Aquí podemos ver que las variables HOVAL, INC, OPEN, PLUMB y DISCBD necesitan una transformación logarítmica, CRIME se distribuye de manera normal sin necesidad de aplicar la transformación y CP se muestra como binomial, por lo que tampoco requiere transformación.
+
+Según el Análisis Exploratorio de Datos, nuestras principales variables de interés a analizar son:
+
+- HOVAL: Valor de la casa (en $1,000 usd). (VARIABLE DEPENDIENTE)
+- INC: Ingresos por hogar (en $1,000 usd).
+- CRIME: Robo en casa-habitación y robo de vehiculos por cada 1,000 casas del vecindario.
+- DISCBD: Distancia hacia el Distrito de Negocios central.
+- CP: Variable binomial dummy donde 1 significa que está en el centro, y 0 en la periferia (Core=1, Periphery=0).
+
+### 2) Análisis Exploratorio Espacial de los Datos (ESDA)
+
+#### Identificamos autocorrelación espacial global de las 5 variables de interés por medio de global moran.
+
+```{r}
+moran.test(columbus_shp@data$HOVAL, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+Interpretación: el resultado estimado indica la presencia de autocorrelación espacial positiva, significativa y débil para HOVAL.
+
+```{r}
+moran.test(columbus_shp@data$INC, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+Interpretación: el resultado estimado indica la presencia de autocorrelación espacial positiva, significativa y débil para INC.
+
+```{r}
+moran.test(columbus_shp@data$CRIME, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+Interpretación: el resultado estimado indica la presencia de autocorrelación espacial positiva, significativa y débil para CRIME.
+
+```{r}
+moran.test(columbus_shp@data$DISCBD, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+Interpretación: el resultado estimado indica la presencia de autocorrelación espacial positiva, significativa y fuerte para DISCBD.
+
+```{r}
+moran.test(columbus_shp@data$CP, listw = rswm_queen, zero.policy = TRUE, na.action = na.omit)
+```
+
+Interpretación: el resultado estimado indica la presencia de autocorrelación espacial positiva, significativa y fuerte para CP.
+
+#### Identificamos autocorrelación espacial local de las 5 variables de interés aplicando un lag espacial y observando los clusters:
+
+```{r warning=FALSE}
+#Creamos el lag espacial para nuestras variables de interés
+columbus_shp@data$sp_HOVAL<-lag.listw(rswm_queen,columbus_shp@data$HOVAL,zero.policy=TRUE)
+columbus_shp@data$sp_INC<-lag.listw(rswm_queen,columbus_shp@data$INC,zero.policy=TRUE)
+columbus_shp@data$sp_CRIME<-lag.listw(rswm_queen,columbus_shp@data$CRIME,zero.policy=TRUE)
+columbus_shp@data$sp_DISCBD<-lag.listw(rswm_queen,columbus_shp@data$DISCBD,zero.policy=TRUE)
+columbus_shp@data$sp_CP<-lag.listw(rswm_queen,columbus_shp@data$CP,zero.policy=TRUE)
+
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,2)))
+print(qtm(columbus_shp,"HOVAL"), vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(qtm(columbus_shp,"sp_HOVAL"), vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+```
+
+Para el caso de HOVAL, podemos observar que sí se formó un cluster de propiedades con altos valores al este de la ciudad, mostrando autocorrelación espacial positiva de manera local.
+
+```{r warning=FALSE}
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,2)))
+print(qtm(columbus_shp,"INC"), vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(qtm(columbus_shp,"sp_INC"), vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+```
+
+Mismo caso para INC, podemos observar que se formó un cluster de ingresos con altos valores al este de la ciudad e ingresos con bajos valores al noroeste de la ciudad, mostrando autocorrelación espacial positiva de manera local.
+
+```{r warning=FALSE}
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,2)))
+print(qtm(columbus_shp,"CRIME"), vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(qtm(columbus_shp,"sp_CRIME"), vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+```
+
+Para el caso del Crimen, podemos notar altos indices de crimen en el centro y disminuyendose mientras uno se acerca a la periferia, mostrando autocorrelación espacial positiva de manera local.
+
+```{r warning=FALSE}
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,2)))
+print(qtm(columbus_shp,"DISCBD"), vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(qtm(columbus_shp,"sp_DISCBD"), vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+```
+
+Al ser esta una variable que se basa en la distancia con el Centro de Negocios, hace sentido que se acerquen al centro los valores menores y a las afueras los mayores, mostrando autocorrelación espacial positiva local.
+
+```{r warning=FALSE}
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,2)))
+print(qtm(columbus_shp,"CP"), vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(qtm(columbus_shp,"sp_CP"), vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+```
+
+Por último, podemos ver que esta variable se comporta muy similar a la DISCBD, y siendo esta una variable dummy que muestra la cercanía al centro y la lejanía a la periferia, procedemos el análisis incluyendo solamente DISCBD (manteniendo la independencia entre las variables independientes y evitando multicolinearidad).
+
+### 3) Estimación de Modelos de Predicción y 4) Diagnóstico de Resultados Estimados
+
+#### Regresión Lineal No-Espacial
+
+```{r}
+# regression model specification and estimation 
+non_spatial_model = lm(log(HOVAL) ~ log(INC) + CRIME + log(DISCBD), data = columbus_shp@data) 
+summary(non_spatial_model)
+```
+
+```{r}
+### AIC:
+AIC(non_spatial_model)
+```
+
+Diagnóstico de los resultados no-espaciales:
+
+```{r}
+# Multicollinearity 
+VIF(non_spatial_model) ### parece que no hay presencia de multicolinearidad
+```
+
+```{r}
+# detecting spatially autocorrelated / non - spatially autocorrelated regression residuals
+columbus_shp@data$non_spatial_regression_residuals <- non_spatial_model$residuals
+
+moran.test(non_spatial_model$residuals, rswm_queen)
+```
+
+Interpretación: Ya que nuestro estadistico "Moran I" es bajo (.2) pero positivo parece que hay bajas concentraciones de clusters de los residuales de la regresión OLS en los vecindarios de Columbus.Esto sugiere que nuestra especificación del modelo de regresión es correcta.
+
+```{r}
+# Lagrange Multiplier Diagnostic for Spatial Dependence (LMlag)
+
+lm.LMtests(non_spatial_model,rswm_queen,test=c("RLMlag")) ### p-value is greater than 5% suggesting that the spatial lag of dependent variable is not required to be specified in the regression model.
+```
+
+Interpretación: De auerdo a nuestro p-value (0.33), el test LM para dependencia espacial sugiere que no debemos considerar un resago espacial de la variable dependiente en nuestro modelo de regresión.
+
+
+```{r}
+# Lagrange Multiplier Diagnostic for Spatial Error Dependence (LMerr)
+
+lm.LMtests(non_spatial_model,rswm_queen,test=c("RLMerr")) ### p-value is greater than 5% suggesting that the spatial lag of the error term is not required to be specified in the regression model.
+```
+
+Interpretación: De acuerdo con nuestro p-value (0.07), el test LM para dependencia espacial del error sugiere que no debemos considerar un resago del termino del error en nuestro módelo de regresión. Sin embargo, es importante señalar que este modelo estuvo solo 2 puntos porcentuales por encima de nuestro p-value, si hubieramos tomado una mética mayor (del 10%) sí hubiesemos requerido agregar este resago espacial del error en la consideración de nuestro modelo.
+
+#### Spatial Durbin Model (Modelo Global)
+
+```{r}
+spatial_durbin <- lagsarlm(log(HOVAL) ~ log(INC) + CRIME + log(DISCBD), data = columbus_shp@data, rswm_queen, type="mixed")
+summary(spatial_durbin)
+```
+
+Diagnóstico de los resultados por medio de la Autocorrelación Espacial de los residuales estimados (εi)
+
+```{r}
+#Detecting spatially autocorrelated / non - spatial autocorrelated regression residuals
+columbus_shp@data$spatial_durbin_residuals <- exp(spatial_durbin$residuals)
+
+moran.test(exp(spatial_durbin$residuals), rswm_queen) 
+```
+
+#### Geographic Weighted Regression (GWR) (Modelo Local)
+
+```{r}
+#Determine the kernel bandwidth
+bw1 <- bw.gwr(log(HOVAL) ~ log(INC) + CRIME + log(DISCBD), approach = "AIC", adaptive = T, data=columbus_shp) 
+```
+
+```{r}
+#Fitting the GWR model
+m.gwr <- gwr.basic(log(HOVAL) ~ log(INC) + CRIME + log(DISCBD), adaptive = T, data = columbus_shp, bw = bw1)
+m.gwr
+```
+
+```{r warning=FALSE}
+# Mapping GWR outputs
+## Note: _TV stands for t-values. t-values less than -1.96 and greater than 1.96 are statistically significant. 
+gwr_sf = st_as_sf(m.gwr$SDF)
+
+#Visualizing local prediction of dependent variable
+gwr_sf$y_predicted <- exp(gwr_sf$yhat)
+
+mapIdeal <- tm_shape(gwr_sf) +
+  tm_polygons(col = "y_predicted", palette="YlOrRd", style="quantile", n=8) +
+   tm_layout(title= 'HOVAL',  title.position = c('right', 'top'))
+print(mapIdeal)
+```
+
+```{r warning=FALSE}
+#Visualizing local prediction of statistically significant explanatory variables
+
+tm_shape(gwr_sf) +
+  tm_polygons(col = "log(DISCBD)_TV", palette="PuBu", style="quantile", n=8, title="t-statistic") +
+  tm_layout(title= '% of DISCBD',  title.position = c('right', 'top'))
+```
+
+```{r warning=FALSE}
+tm_shape(gwr_sf) +
+  tm_polygons(col = "log(INC)_TV", palette="PuRd", style="quantile", n=8, title="t-statistic") +
+  tm_layout(title= '% of Household Income',  title.position = c('right', 'top'))
+```
+
+```{r warning=FALSE}
+# Visualizing local prediction of R2
+
+tm_shape(gwr_sf) +
+  tm_polygons(col = "Local_R2", palette="Greens", style="quantile", n=8, title="R2") +
+  tm_layout(title= 'Estimated Local R2',  title.position = c('right', 'top'))
+```
+
+```{r warning=FALSE}
+# Visualizing local estimated regression residuals
+
+gwr_sf$exp_residuals <- exp(gwr_sf$residual)
+map3 <- tm_shape(gwr_sf) +
+  tm_polygons(col = "exp_residuals", palette="OrRd", style="quantile", n=8, title="Residuals") +
+  tm_layout(title= 'GWR Regression Residuals',  title.position = c('right', 'top'))
+print(map3)
+```
+
+Diagnóstico de los resultados por medio de la Autocorrelación Espacial de los residuales estimados (εi)
+
+```{r}
+# Detecting spatially autocorrelated local regression residuals
+
+moran.test(gwr_sf$exp_residuals, rswm_queen) ### Moran's I statistic is 0.13 indicating the presence of low spatially autocorrelated regression residuals. This result is statistically significant at the 5% level.  
+```
+
+### 5) Selección de Modelo
+
+```{r warning=FALSE}
+# Summary of Non-Spatial and GWR Estimated Models
+
+# table of GWR coefficients
+gwr_table = apply(m.gwr$SDF@data[, 1:7], 2, summary)
+# OLS coefficients
+non_spatial_model_table = coef(non_spatial_model)
+# joint together with a row bind
+table <- rbind(gwr_table, non_spatial_model_table)
+# add name to last row of tab
+rownames(table)[7] <- "Global"
+# transpose tab
+table <- t(round(table, 3))
+table
+```
+
+Con esta tabla podems ver un resumen de cómo se distribuyen los coeficientes de nuestro modelo GWR, y con la siguiente, podemos ver lo mismo para nuestro modelo No-Espacial y nuestro modelo Espacial Durbin.
+
+```{r}
+export_summs(non_spatial_model, spatial_durbin)
+```
+
+Ademas de ver el resumen de los modelos, visualizaremos sus valores de AIC para comparar cuál es mejor para nuestro conjunto de datos.
+
+```{r}
+# summarize AIC (adding spatial regression results)
+Estimation_Method<-c('OLS','SDM', 'GWR')
+AIC<-c(39.48614, 42.518, 23.64592)
+MORAN<-c(0.20769,0.01148,0.13294)
+AIC_df<-data.frame(Estimation_Method,AIC,MORAN)
+AIC_df<-AIC_df[order(AIC),]
+
+export_table(AIC_df, format = "md")
+```
+
+Basandonos en los resultados de los modelos, y observando los bajos valores de AIC y la baja correlación espacial que se mostró en el Morán, podemos determinar que el módelo que mejor estimó los valores es el GWR con análisis local.
+
+Teniendo entonces los valores del GWR, estos son nuestros principales hallazgos identificados:
+
+- 1) Los resultados de la regresión local mostrados por la estimación del modelo GWR indican un AIC más bajo que los resultados de la regresión global espacial y no espacial. Debido al AIC más bajo, seleccionamos los resultados estimados de GWR para predecir los factores asociados con el valor de las casas (HOVAL). Esta conclusión hace sentido por lo que discutimos en las preguntas de la sección pasada, ya que GWR usa los valores de AIC para determinar sus variables.
+
+- 2) Los valores del Crimen tiene un papel negativo y estadísticamente significativo en la variable dependiente. En resumen, un aumento del 1% de las tazas de crimen disminuye el valor de la vivienda (HOVAL) en aproximadamente un 0.012%.
+
+- 3) Los resultados de GWR muestran un mayor valor de las casas en Columbus en las vecindades al sur y norte de la ciudad, siendo el centro la que peor resultado mostró.
+
+- 4) Según los gráficos de GWR, la distancia al centro de negocios tiene un impacto estadísticamente significativo y más fuerte en el valor de las casas, especialmente en el lado este de Columbus. Similar a lo observado con el porcentaje de ingreso familiar en el sur-este del estado.
+
+- 5) En general, los resultados locales estimados por GWR muestran un R2 local significativamente mayor en las regiones del sur y este.
+
+- 6) Por último, ninguno de los modelos de regresión estimados muestra autocorrelación espacial en los residuos de regresión estimados, lo que indica que, en general, la especificación del modelo de regresión podría ser apropiada para predecir el valor de las viviendas de Columbus de 1980.
+
+Por último, y en conclusión, visualizamos los resultados pronositcados por GWR de la variable dependiente (HOVAL):
+
+```{r}
+print(mapIdeal)
+```
+
+Estos resultados nos muestran que los hogares que se encuentren en el este y norte de Columbus tienen el mayor valor, y los hogares del centro son los que en promedio tienen un menor valor.
+
+Mientras que los resultados de regresión no espaciales y espaciales globales asumen una relación similar de las variables explicativas / de control y la variable de interés en todo el espacio (vecindades de Columbus), los resultados de regresión local (GWR) pueden mostrar una relación heterogénea en unidades geográficas como las vecindades de Columbus. En resumen, un modelo predictivo local como GWR puede abordar tanto la no estacionariedad como la autocorrelación espacial en el proceso de generación de datos.
+
+### 6) OPCIONAL (+10 PTS)
+
+#### Estimación de modelo Geographic Weighted Random Forest (GRF)
+
+```{r}
+#Creating a sub-dataset so we can estimate GRF
+spatial_durbin <- lagsarlm(log(HOVAL) ~ log(INC) + CRIME + log(DISCBD), data = columbus_shp@data, rswm_queen, type="mixed")
+grf_data <-  columbus_shp@data %>% select(HOVAL, INC, CRIME, DISCBD)
+grf_data <- grf_data %>% mutate(across(c(HOVAL, INC, DISCBD), function(x) log(x)))
+formula_grf<-"HOVAL ~ INC + CRIME + DISCBD" ### GRF model specification
+```
+
+```{r}
+#Optimal Bandwidth Selection
+bwgrf <- grf.bw(formula = formula_grf, dataset = grf_data, kernel = "adaptive", coords = coords, bw.min = 44, bw.max = 48, step = 1, trees = 500, mtry = NULL, importance = "impurity", forests = FALSE, weighted = TRUE, verbose = TRUE)
+```
+```{r}
+#GRF Estimation
+grf_model <- grf(formula = formula_grf, dframe = grf_data, bw=bwgrf$Best.BW, ntree = 500, mtry = 2, kernel = "adaptive", forests = TRUE, coords = coords)
+```
+
+```{r warning=FALSE}
+#Visualization of GRF estimated results
+## dependent variable 
+columbus_shp@data$grf_predicteddv <- grf_model$LGofFit$LM_yfitPred
+tm_shape(columbus_shp) +
+  tm_polygons(col = "grf_predicteddv", palette="YlOrRd", style="quantile", n=8) +
+  tm_layout(title= 'GRF Predicted HOVAL',  title.position = c('right', 'top'))
+```
+
+```{r warning=FALSE}
+## local R2
+columbus_shp@data$grf_localR2 <- grf_model$LGofFit$LM_Rsq100
+tm_shape(columbus_shp) +
+  tm_polygons(col = "grf_localR2", palette="Greens", style="quantile", n=8, title="R2") +
+  tm_layout(title= 'GRF (Spatial ML) Estimated Local R2',  title.position = c('right', 'top'))
+```
+
+Contrastamos los resultados estimados versus los resultados de los modelos
+explorados en este ejercicio.
+
+```{r}
+# Lets visualize whether spatial autocorrelation is shown in the estimated regression residuals
+
+map1<-tm_shape(columbus_shp) + 
+  tm_polygons(col = "non_spatial_regression_residuals", palette="OrRd", style="quantile", n=8, title="Residuals") + 
+  tm_layout(title= 'Non-Spatial Residuals',  title.position = c('right', 'top'))
+  
+map2<-tm_shape(columbus_shp) + 
+  tm_polygons(col = "spatial_durbin_residuals", palette="OrRd", style="quantile", n=8, title="Residuals") + 
+  tm_layout(title= 'SDM Residuals',  title.position = c('right', 'top'))
+
+
+## Este código es el único que dudo porque no supé cómo sacar los residuales del RF
+
+columbus_shp@data$grf_localresiduals <- exp(grf_model$LGofFit$LM_ResPred)
+
+map4<- tm_shape(columbus_shp) +
+  tm_polygons(col = "grf_localresiduals", palette="OrRd", style="quantile", n=8, title="Residuals") +
+  tm_layout(title= 'GRF (Spatial ML) Estimated Residuals',  title.position = c('right', 'top'))
+```
+
+```{r warning=FALSE}
+# Displaying the estimated regression residuals maps. In general, looks like the regression residuals do not display a spatial pattern confirming the estimated Global Moran’s I tests above.
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,2)))
+print(map1, vp=viewport(layout.pos.col = 1, layout.pos.row =1))
+print(map2, vp=viewport(layout.pos.col = 2, layout.pos.row =1))
+print(map3, vp=viewport(layout.pos.col = 1, layout.pos.row =2))
+print(map4, vp=viewport(layout.pos.col = 2, layout.pos.row =2))
+```
